@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attention Heatmap — Student</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --text: #f0ede8;
+    --muted: #7a7570;
+    --accent: #e8d5a3;
+    --c1: #ff6b6b;
+    --c2: #4ecdc4;
+    --c3: #ffe66d;
+    --confirm: #6bcb77;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow-x: hidden; }
+
+  #app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; background: var(--surface);
+    border-bottom: 1px solid var(--border); gap: 16px;
+  }
+  .logo-wrap { display: flex; align-items: center; gap: 10px; }
+  .logo { font-family: var(--mono); font-size: 13px; letter-spacing: .08em; color: var(--accent); text-transform: uppercase; }
+  .logo span { color: var(--muted); }
+  .role-badge {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 4px;
+    background: rgba(78,205,196,.1); border: 1px solid rgba(78,205,196,.25); color: var(--c2);
+  }
+
+  #main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 28px 20px; gap: 20px; }
+
+  /* ── WAITING ── */
+  #waiting-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; text-align: center; padding: 80px 32px;
+  }
+  .waiting-icon { font-size: 36px; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  #waiting-screen h2 { font-size: 18px; font-weight: 500; color: var(--text); }
+  #waiting-screen p { font-size: 14px; color: var(--muted); max-width: 320px; line-height: 1.6; }
+
+  /* ── CANVAS ── */
+  #canvas-wrapper {
+    position: relative; display: none; cursor: crosshair; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border), 0 16px 48px rgba(0,0,0,.5);
+    max-width: calc(100vw - 40px);
+    line-height: 0;
+  }
+  #canvas-wrapper img {
+    display: block; max-width: 100%;
+    max-height: calc(100vh - 340px);
+    object-fit: contain; pointer-events: none; user-select: none;
+  }
+  #overlay-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+  /* ── INPUT PANEL ── */
+  #input-panel {
+    display: none; width: 100%; max-width: 680px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; gap: 16px; flex-direction: column;
+  }
+  #input-panel.active { display: flex; }
+
+  .name-row { display: flex; gap: 10px; align-items: center; }
+  .name-row label { font-size: 12px; color: var(--muted); font-family: var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  #name-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; font-size: 14px; color: var(--text); font-family: var(--sans);
+    transition: border-color .15s;
+  }
+  #name-input:focus { outline: none; border-color: var(--accent); }
+  #name-input::placeholder { color: var(--muted); }
+
+  .dots-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .click-dot {
+    width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--muted);
+    transition: all .25s; flex-shrink: 0;
+  }
+  .click-dot.done-1 { border-color: var(--c1); color: var(--c1); background: rgba(255,107,107,.12); }
+  .click-dot.done-2 { border-color: var(--c2); color: var(--c2); background: rgba(78,205,196,.12); }
+  .click-dot.done-3 { border-color: var(--c3); color: var(--c3); background: rgba(255,230,109,.12); }
+  .click-dot.active { animation: pulse-ring 1.2s infinite; }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(232,213,163,.4); }
+    70% { box-shadow: 0 0 0 8px rgba(232,213,163,0); }
+    100% { box-shadow: 0 0 0 0 rgba(232,213,163,0); }
+  }
+  .instruction { font-size: 14px; color: var(--muted); flex: 1; min-width: 140px; }
+  .instruction strong { color: var(--text); }
+
+  .reason-section { display: none; }
+  .reason-section label { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-family: var(--mono); display: block; margin-bottom: 8px; }
+  #reason-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; font-size: 14px; color: var(--text); font-family: var(--sans);
+    resize: vertical; min-height: 56px; transition: border-color .15s;
+  }
+  #reason-input:focus { outline: none; border-color: var(--accent); }
+  #reason-input::placeholder { color: var(--muted); }
+
+  .submit-row { display: flex; gap: 10px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px;
+    border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer;
+    border: 1px solid transparent; transition: all .18s; font-family: var(--sans);
+  }
+  .pill-accent { background: var(--accent); color: #111; font-weight: 600; }
+  .pill-accent:hover { background: #f5e8c0; }
+  .pill-accent:disabled { opacity: .4; cursor: not-allowed; }
+  .pill-ghost { border-color: var(--border); color: var(--muted); background: none; }
+  .pill-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── CONFIRM ── */
+  #confirm-screen {
+    display: none; width: 100%; max-width: 680px;
+    background: var(--surface); border: 1px solid #1e4a22; border-radius: 12px;
+    padding: 40px 32px; text-align: center;
+  }
+  #confirm-screen .icon { font-size: 36px; margin-bottom: 12px; }
+  #confirm-screen h3 { font-size: 22px; color: var(--confirm); margin-bottom: 8px; }
+  #confirm-screen p { font-size: 14px; color: var(--muted); margin-bottom: 8px; line-height: 1.6; }
+  #confirm-name { font-size: 13px; color: var(--accent); font-family: var(--mono); margin-bottom: 24px; }
+  .confirm-chips { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px; }
+  .chip {
+    padding: 5px 14px; border-radius: 20px; font-family: var(--mono); font-size: 12px;
+    border: 1.5px solid;
+  }
+  #confirm-reason { font-size: 13px; color: var(--muted); font-style: italic; margin-bottom: 24px; }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo-wrap">
+      <div class="logo">Attention<span>/</span>Heatmap</div>
+      <div class="role-badge">Student</div>
+    </div>
+  </header>
+
+  <div id="main">
+
+    <!-- Waiting for teacher -->
+    <div id="waiting-screen">
+      <div class="waiting-icon">◌</div>
+      <h2>Waiting for session to start</h2>
+      <p>Your teacher hasn't uploaded an image yet. This page will update automatically.</p>
+    </div>
+
+    <!-- Image canvas -->
+    <div id="canvas-wrapper" onclick="handleImageClick(event)">
+      <img id="main-img" src="" alt="">
+      <canvas id="overlay-canvas"></canvas>
+    </div>
+
+    <!-- Input panel -->
+    <div id="input-panel">
+      <div class="name-row">
+        <label for="name-input">Name</label>
+        <input id="name-input" type="text" placeholder="Optional — leave blank to stay anonymous" autocomplete="name">
+      </div>
+
+      <div class="dots-row">
+        <div class="click-dot active" id="dot-1">1</div>
+        <div class="click-dot" id="dot-2">2</div>
+        <div class="click-dot" id="dot-3">3</div>
+        <div class="instruction" id="instruction-text">
+          <strong>Tap #1:</strong> Where does your eye go <strong>first</strong>?
+        </div>
+      </div>
+
+      <div class="reason-section" id="reason-section">
+        <label for="reason-input">Why did you look there first?</label>
+        <textarea id="reason-input" placeholder="Optional — type a short reason..."></textarea>
+      </div>
+
+      <div class="submit-row" id="submit-row" style="display:none;">
+        <button class="pill pill-accent" id="submit-btn" onclick="submitResponse()">Submit →</button>
+        <button class="pill pill-ghost" onclick="resetClicks()">Start over</button>
+      </div>
+    </div>
+
+    <!-- Confirmation -->
+    <div id="confirm-screen">
+      <div class="icon">✓</div>
+      <h3>Response saved!</h3>
+      <p>Your attention points have been recorded.</p>
+      <div id="confirm-name"></div>
+      <div class="confirm-chips" id="confirm-chips"></div>
+      <div id="confirm-reason"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let currentClicks = [];
+let imageLoaded = false;
+let submitted = false;
+let pollInterval = null;
+
+// ── INIT ──
+async function init() {
+  await loadImage();
+}
+
+async function loadImage() {
+  try {
+    const res = await fetch('/api/image');
+    const { src } = await res.json();
+    if (src) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+      initImage(src);
+    } else {
+      // No image yet — poll
+      if (!pollInterval) {
+        pollInterval = setInterval(loadImage, 5000);
+      }
+    }
+  } catch (e) {
+    if (!pollInterval) pollInterval = setInterval(loadImage, 8000);
+  }
+}
+
+function initImage(src) {
+  document.getElementById('waiting-screen').style.display = 'none';
+  const img = document.getElementById('main-img');
+  img.src = src;
+  img.onload = () => {
+    document.getElementById('canvas-wrapper').style.display = 'block';
+    document.getElementById('input-panel').classList.add('active');
+    imageLoaded = true;
+    requestAnimationFrame(() => { resizeCanvas(); redraw(); });
+  };
+}
+
+function resizeCanvas() {
+  const img = document.getElementById('main-img');
+  const canvas = document.getElementById('overlay-canvas');
+  const w = img.offsetWidth, h = img.offsetHeight;
+  if (!w || !h) return;
+  canvas.width = w; canvas.height = h;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+}
+window.addEventListener('resize', () => { if (imageLoaded) { resizeCanvas(); redraw(); } });
+
+// ── CLICK HANDLING ──
+function handleImageClick(e) {
+  if (!imageLoaded || submitted) return;
+  if (currentClicks.length >= 3) return;
+
+  const img = document.getElementById('main-img');
+  const rect = img.getBoundingClientRect();
+  const nx = (e.clientX - rect.left) / rect.width;
+  const ny = (e.clientY - rect.top) / rect.height;
+
+  // Clamp to image bounds
+  if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return;
+
+  currentClicks.push({ nx, ny, order: currentClicks.length + 1 });
+  updateDots();
+  updateInstruction();
+  redraw();
+
+  if (currentClicks.length >= 1) {
+    document.getElementById('reason-section').style.display = 'block';
+    document.getElementById('submit-row').style.display = 'flex';
+  }
+}
+
+function resetClicks() {
+  currentClicks = [];
+  updateDots();
+  updateInstruction();
+  redraw();
+  document.getElementById('reason-section').style.display = 'none';
+  document.getElementById('submit-row').style.display = 'none';
+  document.getElementById('reason-input').value = '';
+}
+
+function updateDots() {
+  const colorClass = [null, 'done-1', 'done-2', 'done-3'];
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('dot-' + i);
+    dot.className = 'click-dot';
+    if (i <= currentClicks.length) dot.classList.add(colorClass[i]);
+    else if (i === currentClicks.length + 1) dot.classList.add('active');
+  }
+}
+
+function updateInstruction() {
+  const n = currentClicks.length;
+  const el = document.getElementById('instruction-text');
+  if (n === 0) el.innerHTML = '<strong>Tap #1:</strong> Where does your eye go <strong>first</strong>?';
+  else if (n === 1) el.innerHTML = '<strong>Tap #2:</strong> Where does your eye go <strong>second</strong>?';
+  else if (n === 2) el.innerHTML = '<strong>Tap #3:</strong> Where does your eye go <strong>third</strong>?';
+  else el.innerHTML = '<strong>All done.</strong> Add a reason or submit.';
+}
+
+// ── DRAWING ──
+function redraw() {
+  if (!imageLoaded) return;
+  const canvas = document.getElementById('overlay-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const colors = [null, '#ff6b6b', '#4ecdc4', '#ffe66d'];
+
+  currentClicks.forEach(p => {
+    const x = p.nx * W, y = p.ny * H;
+    const color = colors[p.order];
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, 30);
+    grd.addColorStop(0, color + '55'); grd.addColorStop(1, color + '00');
+    ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI * 2);
+    ctx.fillStyle = grd; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2);
+    ctx.fillStyle = color + 'cc'; ctx.fill();
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 14px DM Mono, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.order, x, y);
+  });
+}
+
+// ── SUBMIT ──
+async function submitResponse() {
+  if (currentClicks.length < 1) return;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  const name = document.getElementById('name-input').value.trim();
+  const reason = document.getElementById('reason-input').value.trim();
+
+  try {
+    const res = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, clicks: currentClicks, reason }),
+    });
+    if (res.ok) {
+      submitted = true;
+      showConfirm(name, reason);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Submit →';
+      alert('Submission failed. Please try again.');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Submit →';
+    alert('Could not reach server. Check your connection.');
+  }
+}
+
+function showConfirm(name, reason) {
+  document.getElementById('canvas-wrapper').style.display = 'none';
+  document.getElementById('input-panel').classList.remove('active');
+
+  const colors = [null, '#ff6b6b', '#4ecdc4', '#ffe66d'];
+  const chips = currentClicks.map(c =>
+    `<div class="chip" style="color:${colors[c.order]};border-color:${colors[c.order]};background:${colors[c.order]}18">
+      #${c.order} · ${Math.round(c.nx * 100)}%, ${Math.round(c.ny * 100)}%
+    </div>`
+  ).join('');
+  document.getElementById('confirm-chips').innerHTML = chips;
+
+  const nameEl = document.getElementById('confirm-name');
+  nameEl.textContent = name ? name : '';
+
+  const reasonEl = document.getElementById('confirm-reason');
+  reasonEl.textContent = reason ? `"${reason}"` : '';
+
+  document.getElementById('confirm-screen').style.display = 'block';
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+name = "attention-heatmap"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "public"
+
+[[kv_namespaces]]
+binding = "HEATMAP_KV"
+id = "6cde7a7afed148f4ba80997c0ad2df0c"
+preview_id = "f7846fa7ad62403cac2f7cdd4c9310d2"
