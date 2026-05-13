@@ -365,7 +365,6 @@ function drawHeatmap(ctx, W, H, points) {
 
   // Draw glow blobs
   points.forEach(p => {
-    if (view !== 'all' && p.order !== parseInt(view)) return;
     const x = p.nx * W, y = p.ny * H;
     const color = getColor(p.order);
     const grd = ctx.createRadialGradient(x, y, 0, x, y, R);
@@ -377,7 +376,6 @@ function drawHeatmap(ctx, W, H, points) {
   });
   // Centre dots
   points.forEach(p => {
-    if (view !== 'all' && p.order !== parseInt(view)) return;
     const x = p.nx * W, y = p.ny * H;
     ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
     ctx.fillStyle = getColor(p.order) + 'ee'; ctx.fill();
